@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageTwin - AI Image Matcher</title>
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #bc13fe;
+            --bg-dark: #0a0a12;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --text-glow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-dark);
+            background-image: linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(188, 19, 254, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            background: linear-gradient(90deg, var(--neon-blue), white, var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 15px rgba(188, 19, 254, 0.5));
+            animation: pulseTitle 3s infinite alternate;
+        }
+
+        @keyframes pulseTitle {
+            from { filter: drop-shadow(0 0 10px rgba(0, 243, 255, 0.3)); }
+            to { filter: drop-shadow(0 0 25px rgba(188, 19, 254, 0.6)); }
+        }
+
+        .subtitle {
+            color: #ccc;
+            margin-bottom: 40px;
+            font-weight: 300;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            text-shadow: var(--text-glow);
+        }
+
+        .glass-panel {
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Centers content */
+            flex-wrap: wrap; /* Allows progress bar to wrap to next line */
+            gap: 30px;
+            padding: 50px;
+            background: var(--glass-bg);
+            border-radius: 24px;
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            margin-bottom: 30px;
+            max-width: 900px; /* Ensures layout stays nice */
+        }
+
+        .upload-card {
+            width: 260px;
+            height: 320px;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .upload-card:hover {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2) inset;
+        }
+
+        .upload-card input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 0 10px var(--neon-blue));
+        }
+
+        .preview-img {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1;
+        }
+
+        .upload-card.has-file .preview-img {
+            opacity: 1;
+        }
+
+        .pipeline {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .btn {
+            background: transparent;
+            color: white;
+            border: 2px solid var(--neon-pink);
+            padding: 15px 45px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px var(--neon-pink);
+        }
+
+        .btn:hover {
+            background: var(--neon-pink);
+            box-shadow: 0 0 40px var(--neon-pink);
+        }
+
+        .btn:disabled {
+            border-color: #555;
+            color: #555;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* Result Section */
+        #result {
+            width: 80%;
+            max-width: 800px;
+            text-align: center;
+            display: none;
+            margin-top: 20px;
+            margin-bottom: 40px;
+        }
+
+        /* ----- MODAL POPUP ----- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 20;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(6px);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: rgba(255,255,255,0.05);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid var(--neon-blue);
+            width: 70%;
+            max-width: 700px;
+            box-shadow: 0 0 30px rgba(0,243,255,0.3);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .modal img {
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: 1px solid var(--neon-blue);
+            color: white;
+            padding: 10px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.3s;
+        }
+        
+        .close-btn:hover {
+            background: var(--neon-blue);
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+
+        /* Style for the new CSV link */
+        .neon-link {
+            text-decoration: none;
+            color: var(--neon-blue);
+            font-family: 'Courier New', monospace;
+            border: 1px solid var(--neon-blue);
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 15px;
+            display: block;
+            transition: 0.3s;
+            background: rgba(0, 243, 255, 0.05);
+        }
+        .neon-link:hover {
+            background: rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 15px var(--neon-blue);
+        }
+
+        /* --- FOOTER STYLES --- */
+        .footer {
+            margin-top: auto;
+            padding: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 1px;
+            width: 100%;
+        }
+
+        .footer .dev-title {
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .footer .members {
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--neon-blue);
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+        <h1>ImageTwin</h1>
+        <div class="subtitle">AI Image Matcher</div>
+
+        <div class="glass-panel">
+            <div class="upload-card" id="card1">
+                <img id="preview1" class="preview-img">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Upload Source</div>
+                <input id="f1" type="file" accept="image/*" onchange="showPreview(this, 'preview1', 'card1')">
+            </div>
+
+            <div class="pipeline">
+                <button class="btn" onclick="match()" id="matchBtn">Analyze</button>
+                <button class="btn" onclick="showClusters()" id="clusterBtn">Show Clusters</button>
+            </div>
+
+            <div class="upload-card" id="card2">
+                <img id="preview2" class="preview-img">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Upload Target</div>
+                <input id="f2" type="file" accept="image/*" onchange="showPreview(this, 'preview2', 'card2')">
+            </div>
+
+            <div id="progress-container" style="width: 100%; margin-top: 30px; display:none; flex-basis: 100%;">
+                <div style="background: rgba(0,0,0,0.5); border: 1px solid #333; border-radius:10px; overflow:hidden; height:20px;">
+                    <div id="progress-bar" style="width:0%; height:100%; background:var(--neon-blue); box-shadow: 0 0 10px var(--neon-blue);"></div>
+                </div>
+                <div id="progress-text" style="margin-top:8px; font-size:0.9rem; color:#ccc; text-align: center; font-family: monospace;">Processing: 0%</div>
+            </div>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <div id="clusterModal" class="modal">
+        <div class="modal-content" id="modalInner">
+            <h2 style="color: var(--neon-blue); margin-top:0;">Image Clusters</h2>
+            <img id="clusterImage" src="">
+            <div class="close-btn" onclick="closeModal()">Close</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <span class="dev-title">Developed By</span>
+        <span class="members">22K-8710 &nbsp;•&nbsp; 22K-4021 &nbsp;•&nbsp; 22K-4126 &nbsp;•&nbsp; 22K-4022</span>
+    </div>
+
+    <script>
+        function showPreview(input, imgId, cardId) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    document.getElementById(imgId).src = e.target.result;
+                    document.getElementById(cardId).classList.add('has-file');
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function match() {
+            const f1 = document.getElementById('f1').files[0];
+            const f2 = document.getElementById('f2').files[0];
+
+            if (!f1 || !f2) return alert("Upload both images");
+
+            const btn = document.getElementById('matchBtn');
+            btn.innerText = "PROCESSING...";
+            btn.disabled = true;
+
+            const fd = new FormData();
+            fd.append("img1", f1);
+            fd.append("img2", f2);
+
+            try {
+                const res = await fetch("/match", { method: "POST", body: fd });
+                const j = await res.json();
+
+                btn.innerText = "ANALYZE";
+                btn.disabled = false;
+
+                const resultDiv = document.getElementById("result");
+                resultDiv.style.display = "block";
+
+                if (j.error) {
+                    resultDiv.innerHTML = `<div style="color:red;">Error: ${j.error}</div>`;
+                    return;
+                }
+
+                resultDiv.innerHTML = `
+                    <div class="result-box" style="background: rgba(0, 0, 0, 0.6); border: 1px solid var(--neon-blue); padding: 20px; border-radius: 15px; box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);">
+                        <div style="font-size: 2rem; color: var(--neon-blue); margin-bottom: 20px; text-shadow: 0 0 10px var(--neon-blue);">MATCH SCORE: ${j.score}</div>
+                        <img src="/${j.image}" style="width: 100%; border-radius: 10px; border: 1px solid #333;">
+                    </div>`;
+            } catch (e) {
+                btn.innerText = "ANALYZE";
+                btn.disabled = false;
+                alert("Error connecting to server");
+            }
+        }
+
+        // Updated Function with Progress Bar and CSV Download
+        async function showClusters() {
+            const btn = document.getElementById("clusterBtn");
+            btn.innerText = "GENERATING...";
+            btn.disabled = true;
+
+            const progressContainer = document.getElementById("progress-container");
+            const progressBar = document.getElementById("progress-bar");
+            const progressText = document.getElementById("progress-text");
+            
+            // Remove any old CSV links if they exist
+            const oldLink = document.querySelector('.neon-link');
+            if(oldLink) oldLink.remove();
+
+            progressContainer.style.display = "block";
+
+            let done = false;
+            let resultData = null;
+
+            try {
+                while (!done) {
+                    const res = await fetch("/clusters");
+                    const j = await res.json();
+
+                    // Update UI
+                    if(j.progress) {
+                        progressBar.style.width = j.progress + "%";
+                        progressText.innerText = `Processing: ${j.progress}%`;
+                    }
+
+                    if (j.status === "done") {
+                        done = true;
+                        resultData = j;
+                    } else {
+                        // Wait 1 second before polling again
+                        await new Promise(r => setTimeout(r, 1000));
+                    }
+                }
+
+                btn.innerText = "SHOW CLUSTERS";
+                btn.disabled = false;
+                progressContainer.style.display = "none"; // Hide progress bar when done
+
+                // Update Image
+                if (resultData.examples) {
+                    // Grab first example (assuming resultData.examples is an object or array)
+                    const firstVal = Object.values(resultData.examples)[0];
+                    if (firstVal) {
+                        document.getElementById("clusterImage").src = "/" + firstVal;
+                    }
+                } else if (resultData.image) {
+                    // Fallback if backend sends 'image' key directly
+                    document.getElementById("clusterImage").src = "/" + resultData.image;
+                }
+
+                // Show Modal
+                const modal = document.getElementById("clusterModal");
+                const modalInner = document.getElementById("modalInner");
+                modal.style.display = "flex";
+
+                // Create and Append CSV Download Link
+                if (resultData.submission_csv) {
+                    const csvLink = document.createElement("a");
+                    csvLink.href = "/" + resultData.submission_csv;
+                    csvLink.innerText = "DOWNLOAD SUBMISSION.CSV";
+                    csvLink.className = "neon-link"; // Adds the neon style
+                    csvLink.download = "submission.csv"; // Forces download attribute
+                    
+                    // Insert before the Close button
+                    const closeBtn = modalInner.querySelector('.close-btn');
+                    modalInner.insertBefore(csvLink, closeBtn);
+                }
+
+            } catch (e) {
+                console.error(e);
+                btn.innerText = "SHOW CLUSTERS";
+                btn.disabled = false;
+                alert("Error generating clusters.");
+            }
+        }
+
+        function closeModal() {
+            document.getElementById("clusterModal").style.display = "none";
+        }
+    </script>
+
+</body>
+</html>
