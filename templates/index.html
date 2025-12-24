@@ -277,7 +277,6 @@
 
             <div class="pipeline">
                 <button class="btn" onclick="match()" id="matchBtn">Analyze</button>
-                <button class="btn" onclick="showClusters()" id="clusterBtn">Show Clusters</button>
             </div>
 
             <div class="upload-card" id="card2">
@@ -298,13 +297,6 @@
         <div id="result"></div>
     </div>
 
-    <div id="clusterModal" class="modal">
-        <div class="modal-content" id="modalInner">
-            <h2 style="color: var(--neon-blue); margin-top:0;">Image Clusters</h2>
-            <img id="clusterImage" src="">
-            <div class="close-btn" onclick="closeModal()">Close</div>
-        </div>
-    </div>
 
     <div class="footer">
         <span class="dev-title">Developed By</span>
@@ -364,90 +356,6 @@
             }
         }
 
-        // Updated Function with Progress Bar and CSV Download
-        async function showClusters() {
-            const btn = document.getElementById("clusterBtn");
-            btn.innerText = "GENERATING...";
-            btn.disabled = true;
-
-            const progressContainer = document.getElementById("progress-container");
-            const progressBar = document.getElementById("progress-bar");
-            const progressText = document.getElementById("progress-text");
-            
-            // Remove any old CSV links if they exist
-            const oldLink = document.querySelector('.neon-link');
-            if(oldLink) oldLink.remove();
-
-            progressContainer.style.display = "block";
-
-            let done = false;
-            let resultData = null;
-
-            try {
-                while (!done) {
-                    const res = await fetch("/clusters");
-                    const j = await res.json();
-
-                    // Update UI
-                    if(j.progress) {
-                        progressBar.style.width = j.progress + "%";
-                        progressText.innerText = `Processing: ${j.progress}%`;
-                    }
-
-                    if (j.status === "done") {
-                        done = true;
-                        resultData = j;
-                    } else {
-                        // Wait 1 second before polling again
-                        await new Promise(r => setTimeout(r, 1000));
-                    }
-                }
-
-                btn.innerText = "SHOW CLUSTERS";
-                btn.disabled = false;
-                progressContainer.style.display = "none"; // Hide progress bar when done
-
-                // Update Image
-                if (resultData.examples) {
-                    // Grab first example (assuming resultData.examples is an object or array)
-                    const firstVal = Object.values(resultData.examples)[0];
-                    if (firstVal) {
-                        document.getElementById("clusterImage").src = "/" + firstVal;
-                    }
-                } else if (resultData.image) {
-                    // Fallback if backend sends 'image' key directly
-                    document.getElementById("clusterImage").src = "/" + resultData.image;
-                }
-
-                // Show Modal
-                const modal = document.getElementById("clusterModal");
-                const modalInner = document.getElementById("modalInner");
-                modal.style.display = "flex";
-
-                // Create and Append CSV Download Link
-                if (resultData.submission_csv) {
-                    const csvLink = document.createElement("a");
-                    csvLink.href = "/" + resultData.submission_csv;
-                    csvLink.innerText = "DOWNLOAD SUBMISSION.CSV";
-                    csvLink.className = "neon-link"; // Adds the neon style
-                    csvLink.download = "submission.csv"; // Forces download attribute
-                    
-                    // Insert before the Close button
-                    const closeBtn = modalInner.querySelector('.close-btn');
-                    modalInner.insertBefore(csvLink, closeBtn);
-                }
-
-            } catch (e) {
-                console.error(e);
-                btn.innerText = "SHOW CLUSTERS";
-                btn.disabled = false;
-                alert("Error generating clusters.");
-            }
-        }
-
-        function closeModal() {
-            document.getElementById("clusterModal").style.display = "none";
-        }
     </script>
 
 </body>
